@@ -1,12 +1,21 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import Navigation from "@/components/Navigation";
+import Hero from "@/components/Hero";
+import VanLocations from "@/components/VanLocations";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen">
+      <Navigation />
+      <Hero />
+      <VanLocations />
+      
+      <footer className="bg-muted/50 py-12 mt-16">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-muted-foreground">
+            © 2025 Kreams. Premium ice cream vans serving Zambia.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };
