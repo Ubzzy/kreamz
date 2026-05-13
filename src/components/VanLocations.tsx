@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Clock } from "lucide-react";
+import { MapPin, Clock, Map as MapIcon, List } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import VanLocationsMap from "@/components/VanLocationsMap";
 import vanPlaceholder from "@/assets/van-placeholder.jpg";
 
 interface Van {
@@ -19,11 +22,14 @@ interface Schedule {
   start_time: string;
   end_time: string;
   van_id: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const VanLocations = () => {
+  const [view, setView] = useState<"list" | "map">("list");
   const { data: vans, isLoading: vansLoading } = useQuery({
     queryKey: ["ice-cream-vans"],
     queryFn: async () => {
@@ -60,6 +66,19 @@ const VanLocations = () => {
     return schedules?.filter(s => s.van_id === vanId) || [];
   };
 
+  const today = new Date().getDay();
+  const todayMapPoints = (schedules ?? [])
+    .filter((s) => s.day_of_week === today)
+    .map((s) => ({
+      id: s.id,
+      location: s.location,
+      start_time: s.start_time,
+      end_time: s.end_time,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      van_name: vans?.find((v) => v.id === s.van_id)?.name ?? "Van",
+    }));
+
   if (vansLoading || schedulesLoading) {
     return (
       <section id="locations" className="py-16 md:py-24 bg-gradient-to-b from-background to-muted/20">
@@ -82,9 +101,27 @@ const VanLocations = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Check out where our vans will be this week
           </p>
+          <div className="inline-flex rounded-lg border border-border p-1 bg-background">
+            <Button
+              size="sm"
+              variant={view === "list" ? "default" : "ghost"}
+              onClick={() => setView("list")}
+            >
+              <List className="h-4 w-4 mr-2" /> List
+            </Button>
+            <Button
+              size="sm"
+              variant={view === "map" ? "default" : "ghost"}
+              onClick={() => setView("map")}
+            >
+              <MapIcon className="h-4 w-4 mr-2" /> Map
+            </Button>
+          </div>
         </div>
 
-        {!vans || vans.length === 0 ? (
+        {view === "map" ? (
+          <VanLocationsMap schedules={todayMapPoints} />
+        ) : !vans || vans.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-xl text-muted-foreground">
               No vans available at the moment. Check back soon!
