@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { GoogleMap, Marker, InfoWindow, useLoadScript } from "@react-google-maps/api";
+import { GoogleMap, Marker, InfoWindow, useLoadScript, Libraries } from "@react-google-maps/api";
 import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
 import { useState } from "react";
 
@@ -14,11 +14,12 @@ interface MapSchedule {
 }
 
 const containerStyle = { width: "100%", height: "500px", borderRadius: "0.75rem" };
+const LIBRARIES: Libraries = ["places"];
 const LUSAKA = { lat: -15.4167, lng: 28.2833 };
 
 const VanLocationsMap = ({ schedules }: { schedules: MapSchedule[] }) => {
   const { data: apiKey, isLoading } = useGoogleMapsKey();
-  const { isLoaded } = useLoadScript({ googleMapsApiKey: apiKey ?? "" });
+  const { isLoaded } = useLoadScript({ googleMapsApiKey: apiKey ?? "", libraries: LIBRARIES });
   const [selected, setSelected] = useState<string | null>(null);
 
   const points = useMemo(
