@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus } from "lucide-react";
+import LocationPicker from "@/components/dashboard/LocationPicker";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -25,6 +26,8 @@ interface Schedule {
   start_time: string;
   end_time: string;
   active: boolean;
+  latitude: number | null;
+  longitude: number | null;
   ice_cream_vans?: { name: string };
 }
 
@@ -35,6 +38,8 @@ const ScheduleManagement = () => {
     dayOfWeek: "0",
     startTime: "",
     endTime: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
   });
   const [isAdding, setIsAdding] = useState(false);
   const { toast } = useToast();
@@ -68,6 +73,8 @@ const ScheduleManagement = () => {
       day_of_week: number;
       start_time: string;
       end_time: string;
+      latitude: number | null;
+      longitude: number | null;
     }) => {
       const { error } = await supabase.from("van_schedules").insert(schedule);
       if (error) throw error;
@@ -76,7 +83,7 @@ const ScheduleManagement = () => {
       queryClient.invalidateQueries({ queryKey: ["all-schedules"] });
       queryClient.invalidateQueries({ queryKey: ["van-schedules"] });
       toast({ title: "Schedule added successfully!" });
-      setNewSchedule({ vanId: "", location: "", dayOfWeek: "0", startTime: "", endTime: "" });
+      setNewSchedule({ vanId: "", location: "", dayOfWeek: "0", startTime: "", endTime: "", latitude: null, longitude: null });
       setIsAdding(false);
     },
     onError: (error: Error) => {
@@ -126,6 +133,8 @@ const ScheduleManagement = () => {
       day_of_week: parseInt(newSchedule.dayOfWeek),
       start_time: newSchedule.startTime,
       end_time: newSchedule.endTime,
+      latitude: newSchedule.latitude,
+      longitude: newSchedule.longitude,
     });
   };
 
@@ -179,13 +188,18 @@ const ScheduleManagement = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="location">Location *</Label>
-                <Input
-                  id="location"
+                <LocationPicker
                   value={newSchedule.location}
-                  onChange={(e) => setNewSchedule({ ...newSchedule, location: e.target.value })}
+                  onChange={({ location, lat, lng }) =>
+                    setNewSchedule({ ...newSchedule, location, latitude: lat, longitude: lng })
+                  }
                   placeholder="e.g., Manda Hill Shopping Mall"
-                  required
                 />
+                {newSchedule.latitude != null && (
+                  <p className="text-xs text-muted-foreground">
+                    Pinned at {newSchedule.latitude.toFixed(4)}, {newSchedule.longitude!.toFixed(4)}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -256,6 +270,11 @@ const ScheduleManagement = () => {
                   <p className="text-sm">
                     {schedule.start_time} - {schedule.end_time}
                   </p>
+                  {schedule.latitude != null && schedule.longitude != null && (
+                    <p className="text-xs text-muted-foreground">
+                      📍 {Number(schedule.latitude).toFixed(4)}, {Number(schedule.longitude).toFixed(4)}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
