@@ -2,9 +2,11 @@ import { Link } from "react-router-dom";
 import { IceCream, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const Navigation = () => {
   const { user, signOut } = useAuth();
+  const { canManage } = useUserRole();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
@@ -17,9 +19,11 @@ const Navigation = () => {
         <div className="flex items-center gap-4">
           {user ? (
             <>
-              <Link to="/dashboard">
-                <Button variant="secondary">Dashboard</Button>
-              </Link>
+              {canManage && (
+                <Link to="/dashboard">
+                  <Button variant="secondary">Dashboard</Button>
+                </Link>
+              )}
               <Button onClick={signOut} variant="outline">
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
