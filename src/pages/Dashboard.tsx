@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import Navigation from "@/components/Navigation";
 import VanManagement from "@/components/dashboard/VanManagement";
 import ScheduleManagement from "@/components/dashboard/ScheduleManagement";
@@ -8,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
+  const { canManage, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,7 +18,7 @@ const Dashboard = () => {
     }
   }, [user, loading, navigate]);
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-xl text-muted-foreground">Loading...</p>
@@ -26,6 +28,21 @@ const Dashboard = () => {
 
   if (!user) {
     return null;
+  }
+
+  if (!canManage) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        <Navigation />
+        <div className="container mx-auto px-4 pt-32 pb-16 text-center max-w-xl">
+          <h1 className="text-3xl font-bold mb-3">Owners only</h1>
+          <p className="text-muted-foreground">
+            Your account doesn't have access to the dashboard. If you're the owner,
+            please contact support to be granted access.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
