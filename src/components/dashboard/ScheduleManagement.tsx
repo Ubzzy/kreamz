@@ -1,35 +1,22 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getVans,
+  getSchedules,
+  createSchedule as createScheduleDb,
+  deleteSchedule as deleteScheduleDb,
+  VanSchedule,
+} from "@/integrations/firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus } from "lucide-react";
 import LocationPicker from "@/components/dashboard/LocationPicker";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-interface Van {
-  id: string;
-  name: string;
-}
-
-interface Schedule {
-  id: string;
-  van_id: string;
-  location: string;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
-  active: boolean;
-  latitude: number | null;
-  longitude: number | null;
-  ice_cream_vans?: { name: string };
-}
 
 const ScheduleManagement = () => {
   const [newSchedule, setNewSchedule] = useState({
@@ -48,36 +35,19 @@ const ScheduleManagement = () => {
   const { data: vans } = useQuery({
     queryKey: ["vans-for-schedule"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ice_cream_vans").select("id, name").eq("active", true);
-      if (error) throw error;
-      return data as Van[];
+      const allVans = await getVans();
+      return allVans.filter((v) => v.status === "active");
     },
   });
 
   const { data: schedules, isLoading } = useQuery({
     queryKey: ["all-schedules"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("van_schedules")
-        .select("*, ice_cream_vans(name)")
-        .order("day_of_week", { ascending: true });
-      if (error) throw error;
-      return data as Schedule[];
-    },
+    queryFn: () => getSchedules(),
   });
 
   const createSchedule = useMutation({
-    mutationFn: async (schedule: {
-      van_id: string;
-      location: string;
-      day_of_week: number;
-      start_time: string;
-      end_time: string;
-      latitude: number | null;
-      longitude: number | null;
-    }) => {
-      const { error } = await supabase.from("van_schedules").insert(schedule);
-      if (error) throw error;
+    mutationFn: async (schedule: Omit<VanSchedule, "id" | "createdAt" | "updatedAt">) => {
+      await createScheduleDb(schedule);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-schedules"] });
@@ -91,25 +61,9 @@ const ScheduleManagement = () => {
     },
   });
 
-  const updateSchedule = useMutation({
-    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from("van_schedules").update({ active }).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-schedules"] });
-      queryClient.invalidateQueries({ queryKey: ["van-schedules"] });
-      toast({ title: "Schedule updated successfully!" });
-    },
-    onError: (error: Error) => {
-      toast({ variant: "destructive", title: "Failed to update schedule", description: error.message });
-    },
-  });
-
   const deleteSchedule = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("van_schedules").delete().eq("id", id);
-      if (error) throw error;
+      await deleteScheduleDb(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-schedules"] });
@@ -128,14 +82,18 @@ const ScheduleManagement = () => {
       return;
     }
     createSchedule.mutate({
-      van_id: newSchedule.vanId,
+      vanId: newSchedule.vanId,
       location: newSchedule.location,
-      day_of_week: parseInt(newSchedule.dayOfWeek),
-      start_time: newSchedule.startTime,
-      end_time: newSchedule.endTime,
+      dayOfWeek: newSchedule.dayOfWeek,
+      startTime: newSchedule.startTime,
+      endTime: newSchedule.endTime,
       latitude: newSchedule.latitude,
       longitude: newSchedule.longitude,
     });
+  };
+
+  const getVanName = (vanId: string) => {
+    return vans?.find((v) => v.id === vanId)?.name ?? "Van";
   };
 
   if (isLoading) {
@@ -156,7 +114,7 @@ const ScheduleManagement = () => {
         <Card>
           <CardContent className="py-8">
             <p className="text-center text-muted-foreground">
-              Please add at least one ice cream van before creating schedules.
+              Please add at least one active ice cream van before creating schedules.
             </p>
           </CardContent>
         </Card>
@@ -178,7 +136,7 @@ const ScheduleManagement = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {vans.map((van) => (
-                      <SelectItem key={van.id} value={van.id}>
+                      <SelectItem key={van.id} value={van.id!}>
                         {van.name}
                       </SelectItem>
                     ))}
@@ -193,11 +151,13 @@ const ScheduleManagement = () => {
                   onChange={({ location, lat, lng }) =>
                     setNewSchedule({ ...newSchedule, location, latitude: lat, longitude: lng })
                   }
-                  placeholder="e.g., Manda Hill Shopping Mall"
+                  placeholder="Search for a location in Lusaka, Zambia"
+                  lat={newSchedule.latitude}
+                  lng={newSchedule.longitude}
                 />
                 {newSchedule.latitude != null && (
                   <p className="text-xs text-muted-foreground">
-                    Pinned at {newSchedule.latitude.toFixed(4)}, {newSchedule.longitude!.toFixed(4)}
+                    📍 {newSchedule.latitude.toFixed(4)}, {newSchedule.longitude!.toFixed(4)}
                   </p>
                 )}
               </div>
@@ -261,42 +221,32 @@ const ScheduleManagement = () => {
               <div className="flex items-start justify-between">
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-lg">{schedule.ice_cream_vans?.name}</h3>
+                    <h3 className="font-semibold text-lg">{getVanName(schedule.vanId)}</h3>
                     <span className="text-sm px-2 py-1 bg-primary/10 text-primary rounded">
-                      {DAYS[schedule.day_of_week]}
+                      {DAYS[parseInt(schedule.dayOfWeek)]}
                     </span>
                   </div>
                   <p className="text-muted-foreground">{schedule.location}</p>
                   <p className="text-sm">
-                    {schedule.start_time} - {schedule.end_time}
+                    {schedule.startTime} - {schedule.endTime}
                   </p>
                   {schedule.latitude != null && schedule.longitude != null && (
                     <p className="text-xs text-muted-foreground">
-                      📍 {Number(schedule.latitude).toFixed(4)}, {Number(schedule.longitude).toFixed(4)}
+                      📍 {schedule.latitude.toFixed(4)}, {schedule.longitude.toFixed(4)}
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor={`active-${schedule.id}`}>Active</Label>
-                    <Switch
-                      id={`active-${schedule.id}`}
-                      checked={schedule.active}
-                      onCheckedChange={(checked) => updateSchedule.mutate({ id: schedule.id, active: checked })}
-                    />
-                  </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm("Are you sure you want to delete this schedule?")) {
-                        deleteSchedule.mutate(schedule.id);
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm("Are you sure you want to delete this schedule?")) {
+                      deleteSchedule.mutate(schedule.id!);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </CardContent>
           </Card>

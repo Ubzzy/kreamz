@@ -23,9 +23,14 @@ const LocationPicker = ({ value, onChange, placeholder, lat, lng }: Props) => {
   });
   const inputRef = useRef<HTMLInputElement | null>(null);
   const acRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [inputValue, setInputValue] = useState(value);
   const [marker, setMarker] = useState<{ lat: number; lng: number } | null>(
     lat != null && lng != null ? { lat: Number(lat), lng: Number(lng) } : null
   );
+
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
 
   useEffect(() => {
     if (!isLoaded || !inputRef.current || acRef.current) return;
@@ -37,9 +42,12 @@ const LocationPicker = ({ value, onChange, placeholder, lat, lng }: Props) => {
       const place = ac.getPlace();
       const loc = place.geometry?.location;
       const next = loc ? { lat: loc.lat(), lng: loc.lng() } : null;
+      const address = place.formatted_address || place.name || "";
       if (next) setMarker(next);
+      if (inputRef.current) inputRef.current.value = address;
+      setInputValue(address);
       onChange({
-        location: place.formatted_address || place.name || inputRef.current?.value || "",
+        location: address,
         lat: next?.lat ?? null,
         lng: next?.lng ?? null,
       });
@@ -60,6 +68,7 @@ const LocationPicker = ({ value, onChange, placeholder, lat, lng }: Props) => {
       // keep coord-string fallback
     }
     if (inputRef.current) inputRef.current.value = address;
+    setInputValue(address);
     onChange({ location: address, lat: next.lat, lng: next.lng });
   };
 
@@ -67,9 +76,12 @@ const LocationPicker = ({ value, onChange, placeholder, lat, lng }: Props) => {
     <div className="space-y-2">
       <Input
         ref={inputRef}
-        defaultValue={value}
+        value={inputValue}
         placeholder={placeholder ?? "Search for a place in Zambia"}
-        onChange={(e) => onChange({ location: e.target.value, lat: null, lng: null })}
+        onChange={(e) => {
+          setInputValue(e.target.value);
+          onChange({ location: e.target.value, lat: null, lng: null });
+        }}
       />
       {isLoaded ? (
         <>

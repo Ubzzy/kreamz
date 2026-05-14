@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getUserRoles } from "@/integrations/firebase/firestore";
 
 export type AppRole = "owner" | "admin" | "user";
 
@@ -8,15 +8,12 @@ export const useUserRole = () => {
   const { user } = useAuth();
 
   const { data: roles, isLoading } = useQuery({
-    queryKey: ["user-roles", user?.id],
+    queryKey: ["user-roles", user?.uid],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user!.id);
-      if (error) throw error;
-      return data.map((r) => r.role as AppRole);
+      if (!user) return [];
+      const userRoles = await getUserRoles(user.uid);
+      return userRoles.map((r) => r.role as AppRole);
     },
   });
 

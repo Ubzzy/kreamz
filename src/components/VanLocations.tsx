@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getVans, getSchedules } from "@/integrations/firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Clock, Map as MapIcon, List } from "lucide-react";
@@ -8,75 +8,55 @@ import { Button } from "@/components/ui/button";
 import VanLocationsMap from "@/components/VanLocationsMap";
 import vanPlaceholder from "@/assets/van-placeholder.jpg";
 
-interface Van {
-  id: string;
-  name: string;
-  description: string | null;
-  image_url: string | null;
-}
-
-interface Schedule {
-  id: string;
-  location: string;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
-  van_id: string;
-  latitude: number | null;
-  longitude: number | null;
-}
-
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+interface Schedule {
+  id?: string;
+  vanId: string;
+  dayOfWeek: string;
+  location: string;
+  startTime: string;
+  endTime: string;
+  longitude?: number;
+  latitude?: number;
+}
+
 const VanLocations = () => {
-  const [view, setView] = useState<"list" | "map">("list");
+  const [view, setView] = useState<"list" | "map">("map");
+
   const { data: vans, isLoading: vansLoading } = useQuery({
     queryKey: ["ice-cream-vans"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ice_cream_vans")
-        .select("*")
-        .eq("active", true);
-      
-      if (error) throw error;
-      return data as Van[];
+      const allVans = await getVans();
+      return allVans.filter((v) => v.status === "active");
     },
   });
 
-  const { data: schedules, isLoading: schedulesLoading } = useQuery({
+  const { data: schedules, isLoading: schedulesLoading } = useQuery<Schedule[]>({
     queryKey: ["van-schedules"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("van_schedules")
-        .select("*")
-        .eq("active", true)
-        .order("day_of_week", { ascending: true });
-      
-      if (error) throw error;
-      return data as Schedule[];
-    },
+    queryFn: () => getSchedules(),
   });
 
   const getTodaySchedules = (vanId: string) => {
     const today = new Date().getDay();
-    return schedules?.filter(s => s.van_id === vanId && s.day_of_week === today) || [];
+    return schedules ? schedules.filter(s => s.vanId === vanId && parseInt(s.dayOfWeek) === today) : [];
   };
 
   const getWeekSchedules = (vanId: string) => {
-    return schedules?.filter(s => s.van_id === vanId) || [];
+    return schedules?.filter(s => s.vanId === vanId) || [];
   };
 
   const today = new Date().getDay();
-  const todayMapPoints = (schedules ?? [])
-    .filter((s) => s.day_of_week === today)
+  const todayMapPoints = ((schedules as Schedule[]) ?? [])
+    .filter((s) => parseInt(s.dayOfWeek) === today)
     .map((s) => ({
       id: s.id,
       location: s.location,
-      start_time: s.start_time,
-      end_time: s.end_time,
-      latitude: s.latitude,
-      longitude: s.longitude,
-      van_name: vans?.find((v) => v.id === s.van_id)?.name ?? "Van",
+      start_time: s.startTime,
+      end_time: s.endTime,
+      latitude: s.latitude ?? null,
+      longitude: s.longitude ?? null,
+      van_name: vans?.find((v) => v.id === s.vanId)?.name ?? "Van",
     }));
 
   if (vansLoading || schedulesLoading) {
@@ -104,17 +84,17 @@ const VanLocations = () => {
           <div className="inline-flex rounded-lg border border-border p-1 bg-background">
             <Button
               size="sm"
-              variant={view === "list" ? "default" : "ghost"}
-              onClick={() => setView("list")}
-            >
-              <List className="h-4 w-4 mr-2" /> List
-            </Button>
-            <Button
-              size="sm"
               variant={view === "map" ? "default" : "ghost"}
               onClick={() => setView("map")}
             >
               <MapIcon className="h-4 w-4 mr-2" /> Map
+            </Button> 
+            <Button
+              size="sm"
+              variant={view === "list" ? "default" : "ghost"}
+              onClick={() => setView("list")}
+            >
+              <List className="h-4 w-4 mr-2" /> List
             </Button>
           </div>
         </div>
@@ -130,23 +110,21 @@ const VanLocations = () => {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {vans.map((van) => {
-              const todaySchedules = getTodaySchedules(van.id);
-              const weekSchedules = getWeekSchedules(van.id);
+              const todaySchedules = getTodaySchedules(van.id!);
+              const weekSchedules = getWeekSchedules(van.id!);
 
               return (
                 <Card key={van.id} className="overflow-hidden hover:shadow-hover transition-all duration-300 hover:scale-105">
                   <div className="aspect-video overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
                     <img
-                      src={van.image_url || vanPlaceholder}
+                      src={vanPlaceholder}
                       alt={van.name}
                       className="w-full h-full object-cover"
                     />
                   </div>
                   <CardHeader>
                     <CardTitle className="text-2xl">{van.name}</CardTitle>
-                    {van.description && (
-                      <CardDescription className="text-base">{van.description}</CardDescription>
-                    )}
+                    <CardDescription className="text-base">{van.phone}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {todaySchedules.length > 0 && (
@@ -159,7 +137,7 @@ const VanLocations = () => {
                               <p className="font-medium">{schedule.location}</p>
                               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                 <Clock className="h-4 w-4" />
-                                <span>{schedule.start_time} - {schedule.end_time}</span>
+                                <span>{schedule.startTime} - {schedule.endTime}</span>
                               </div>
                             </div>
                           </div>
@@ -173,7 +151,7 @@ const VanLocations = () => {
                         <div className="space-y-1 text-sm">
                           {weekSchedules.map((schedule) => (
                             <div key={schedule.id} className="flex justify-between py-1 border-b border-border/50 last:border-0">
-                              <span className="text-muted-foreground">{DAYS[schedule.day_of_week]}</span>
+                              <span className="text-muted-foreground">{DAYS[parseInt(schedule.dayOfWeek)]}</span>
                               <span className="font-medium">{schedule.location}</span>
                             </div>
                           ))}

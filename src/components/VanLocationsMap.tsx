@@ -41,6 +41,8 @@ const VanLocationsMap = ({ schedules }: { schedules: MapSchedule[] }) => {
 
   if (points.length === 0) {
     return (
+      console.log("sample schedule:", schedules?.[0]),
+      console.log("No valid map points found. Schedules:", schedules),
       <div className="h-[500px] rounded-xl bg-muted/40 flex items-center justify-center text-muted-foreground p-6 text-center">
         No mapped locations yet. The owner can add coordinates from the dashboard.
       </div>
@@ -48,6 +50,7 @@ const VanLocationsMap = ({ schedules }: { schedules: MapSchedule[] }) => {
   }
 
   return (
+    
     <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={11}>
       {points.map((s) => (
         <Marker
