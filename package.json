@@ -1,6 +1,6 @@
 {
   "name": "kreams-hub-manager",
-  "description": "Ice cream van management system for KreamZ - Zambia",
+  "description": "Ice cream van management system for KreaMs - Zambia",
   "private": true,
   "version": "1.0.0",
   "type": "module",

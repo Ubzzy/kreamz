@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api";
 import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
 import { Input } from "@/components/ui/input";
+import { getCached, setCached } from "@/lib/cache";
 
 const LIBRARIES: ("places")[] = ["places"];
 const LUSAKA = { lat: -15.4167, lng: 28.2833 };
@@ -27,6 +28,8 @@ const LocationPicker = ({ value, onChange, placeholder, lat, lng }: Props) => {
   const [marker, setMarker] = useState<{ lat: number; lng: number } | null>(
     lat != null && lng != null ? { lat: Number(lat), lng: Number(lng) } : null
   );
+  const debounceRef = useRef<number | null>(null);
+  const skipDebounceRef = useRef(false);
 
   useEffect(() => {
     setInputValue(value);
@@ -46,6 +49,9 @@ const LocationPicker = ({ value, onChange, placeholder, lat, lng }: Props) => {
       if (next) setMarker(next);
       if (inputRef.current) inputRef.current.value = address;
       setInputValue(address);
+      // Avoid debounced duplicate updates from the input handler
+      skipDebounceRef.current = true;
+      window.setTimeout(() => (skipDebounceRef.current = false), 500);
       onChange({
         location: address,
         lat: next?.lat ?? null,
@@ -61,9 +67,19 @@ const LocationPicker = ({ value, onChange, placeholder, lat, lng }: Props) => {
     setMarker(next);
     let address = `${next.lat.toFixed(5)}, ${next.lng.toFixed(5)}`;
     try {
-      const geocoder = new google.maps.Geocoder();
-      const res = await geocoder.geocode({ location: next });
-      if (res.results[0]?.formatted_address) address = res.results[0].formatted_address;
+      const key = `revgeo:${next.lat.toFixed(5)},${next.lng.toFixed(5)}`;
+      const cached = await getCached(key);
+      if (cached) {
+        address = cached;
+      } else {
+        const geocoder = new google.maps.Geocoder();
+        const res = await geocoder.geocode({ location: next });
+        if (res.results[0]?.formatted_address) {
+          address = res.results[0].formatted_address;
+          // cache for 7 days
+          setCached(key, address, 7 * 24 * 3600);
+        }
+      }
     } catch {
       // keep coord-string fallback
     }
@@ -79,8 +95,14 @@ const LocationPicker = ({ value, onChange, placeholder, lat, lng }: Props) => {
         value={inputValue}
         placeholder={placeholder ?? "Search for a place in Zambia"}
         onChange={(e) => {
-          setInputValue(e.target.value);
-          onChange({ location: e.target.value, lat: null, lng: null });
+          const v = e.target.value;
+          setInputValue(v);
+          if (debounceRef.current) window.clearTimeout(debounceRef.current);
+          if (skipDebounceRef.current) return;
+          debounceRef.current = window.setTimeout(() => {
+            onChange({ location: v, lat: null, lng: null });
+            debounceRef.current = null;
+          }, 500) as unknown as number;
         }}
       />
       {isLoaded ? (
