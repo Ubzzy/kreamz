@@ -10,7 +10,7 @@ const Hero = () => {
           <div className="space-y-6 animate-fade-in">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
               <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                KreaM'
+                KreaM's
               </span>
               <br />
               <span className="text-foreground">Premium Ice Cream</span>
