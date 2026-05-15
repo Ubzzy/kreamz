@@ -13,7 +13,7 @@ const Navigation = () => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 text-2xl font-bold text-primary hover:opacity-80 transition-opacity">
           <IceCream className="h-8 w-8" />
-          <span>Kreams</span>
+          <span>KreaM's</span>
         </Link>
 
         <div className="flex items-center gap-4">
