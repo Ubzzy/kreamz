@@ -10,14 +10,14 @@ const Hero = () => {
           <div className="space-y-6 animate-fade-in">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
               <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                Kreams
+                KreamZ
               </span>
               <br />
               <span className="text-foreground">Premium Ice Cream</span>
             </h1>
             
             <p className="text-xl md:text-2xl text-muted-foreground max-w-lg">
-              Find our colorful ice cream vans across Zambia. Fresh, delicious treats delivered to your neighborhood!
+              Find our colorful ice cream vans across Zambia. Fresh, delicious treats at your favorite places!
             </p>
 
             <div className="flex flex-wrap gap-4">
